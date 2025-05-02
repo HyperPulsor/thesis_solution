@@ -31,8 +31,7 @@ class MainWindow(QMainWindow):
         
     def get_ssl_cert_captive(self):
         try:
-            response = requests.get("https://sso-ui-ac-id.work.gd/", allow_redirects=True, timeout=5)
-            # response = requests.get("http://www.msftconnecttest.com/redirect", allow_redirects=True, timeout=5)
+            response = requests.get("http://www.msftconnecttest.com/redirect", allow_redirects=True, timeout=5)
             final_url = response.url
             self.text_area.append(f"Final redirected URL:\n{final_url}\n")
         except Exception as e:
