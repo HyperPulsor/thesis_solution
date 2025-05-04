@@ -15,13 +15,14 @@ from PyQt5.QtWidgets import (QApplication,
                              QLineEdit,
                              QMessageBox)
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SSL Certificate Verifier")
         self.setWindowIcon(QIcon("static/favicon.png"))
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(100, 100, 800, 600)
         
         self.window1 = AnotherWindow()
         
@@ -34,16 +35,40 @@ class MainWindow(QMainWindow):
         self.text_area = QTextEdit()
         self.text_area.setReadOnly(True)
         
+        self.text_area_issues = QTextEdit()
+        self.text_area_issues.setReadOnly(True)
+        
         self.button_set_legit_web = QPushButton("Set Legitimate Web")
         self.button_set_legit_web.clicked.connect(self.toggle_window1)
         
         self.button_verify = QPushButton("Verify Web Authenticity")
         self.button_verify.clicked.connect(self.get_ssl_cert_captive)
         
+        self.final_redirect_label = QLabel("Final Redirected URL: ")
+        self.final_redirect_label.setStyleSheet("font-weight: bold;")
+        
+        self.ssl_info_label = QLabel("Web SSL Information:")
+        self.ssl_info_label.setStyleSheet("font-weight: bold;")
+        self.ssl_info_label.setBuddy(self.text_area)
+        
+        self.issues_label = QLabel("Identified Issues:")
+        self.issues_label.setStyleSheet("font-weight: bold;")
+        self.issues_label.setBuddy(self.text_area_issues)
+        
+        self.result_label = QLabel("")
+        self.result_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 6px;")
+        self.result_label.setText("Ready to verify!")
+        self.result_label.setAlignment(Qt.AlignCenter)
+        
         self.layout = QVBoxLayout()
         # self.layout.addWidget(self.button_set_legit_web)
         self.layout.addWidget(self.button_verify)
+        self.layout.addWidget(self.final_redirect_label)
+        self.layout.addWidget(self.ssl_info_label)
         self.layout.addWidget(self.text_area)
+        self.layout.addWidget(self.issues_label)
+        self.layout.addWidget(self.text_area_issues)
+        self.layout.addWidget(self.result_label)
         
         self.container = QWidget()
         self.container.setLayout(self.layout)
@@ -70,11 +95,12 @@ class MainWindow(QMainWindow):
             
     def request_url(self):
         # url = "http://www.msftconnecttest.com/redirect"
+        # url = "https://sso.ui.ac.id/cas/login?service=https://sts.ms.ui.ac.id/Login.aspx"
         url = "https://sso-ui-ac-id.work.gd/"
         try:
             response = requests.get(url, allow_redirects=True, timeout=10)
             final_url = response.url
-            self.text_area.append(f"Final redirected URL: {final_url}\n")
+            self.final_redirect_label.setText(f"Final Redirected URL: {final_url}")
             return final_url
         except Exception as e:
             self.text_area.setText(f"Failed to get redirected URL: {e}")
@@ -105,14 +131,18 @@ class MainWindow(QMainWindow):
 
         if fingerprint.lower() != known_cert_data["fingerprint"].lower():
             issues.append("SHA-256 fingerprint mismatch")
-
+        
         if issues:
-            self.text_area.append("\n⚠️ SSL Certificate MISMATCH detected!")
+            self.text_area_issues.setText("SSL Certificate MISMATCH detected!")
+            self.result_label.setStyleSheet("color: red; font-weight: bold; font-size: 14px; padding: 10px;")
+            self.result_label.setText("Web is not Authenticated")
             for issue in issues:
-                self.text_area.append(f"- {issue}")
+                self.text_area_issues.append(f"- {issue}")
             return False
         else:
-            self.text_area.append("\n✅ SSL Certificate matches known legitimate site.")
+            self.text_area_issues.setText("None")
+            self.result_label.setStyleSheet("color: green; font-weight: bold; font-size: 14px; padding: 10px;")
+            self.result_label.setText("Web is Authenticated")
             return True
         
         
@@ -137,8 +167,7 @@ class MainWindow(QMainWindow):
                     cert = ssock.getpeercert()
                     
                     der_cert = ssock.getpeercert(binary_form=True)
-                    sha256_digest = hashlib.sha256(der_cert).hexdigest()
-                    fingerprint = ":".join(sha256_digest[i:i+2].upper() for i in range(0, len(sha256_digest), 2))
+                    fingerprint = hashlib.sha256(der_cert).hexdigest()
                     
                     subject = dict(x[0] for x in cert.get('subject', []))
                     issuer = dict(x[0] for x in cert.get('issuer', []))
@@ -162,8 +191,7 @@ class MainWindow(QMainWindow):
                     self.text_area.append(f"Organizational Unit (OU): {issuer_org_unit} \n")
                     
                     self.text_area.append(f"SHA-256 Fingerprint: \n {fingerprint}")
-                    isLegit = self.compare_ssl_to_known(subject=subject, issuer=issuer, fingerprint=fingerprint, known_cert_data=ui_web)
-                    print(isLegit)
+                    self.compare_ssl_to_known(subject=subject, issuer=issuer, fingerprint=fingerprint, known_cert_data=ui_web)
                     
         except Exception as e:
             self.text_area.setText(f"Error retrieving certificate: {e}")
