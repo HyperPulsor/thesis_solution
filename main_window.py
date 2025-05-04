@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QPushButton, QVBoxLayout, Q
                              QLabel, QMessageBox, QComboBox)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
-from edit_window import AnotherWindow
+from edit_window import EditWindow
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -17,8 +17,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("static/favicon.png"))
         self.setGeometry(100, 100, 800, 600)
 
-        self.window1 = AnotherWindow()
-
+        self.window1 = EditWindow()
+        
         self.msg = QMessageBox()
         self.msg.setIcon(QMessageBox.Critical)
         self.msg.setText("Error")
@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
         self.button_verify = QPushButton("Verify Web Authenticity")
         self.button_verify.clicked.connect(self.get_ssl_cert_captive)
 
-        self.button_save_web = QPushButton("Edit Known Websites")
+        self.button_save_web = QPushButton("Save Known Websites")
         self.button_save_web.clicked.connect(self.toggle_window)
 
         self.final_redirect_label = QLabel("Final Redirected URL: ")
@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
 
         parsed = urlparse(final_url)
         if parsed.scheme != "https":
-            self.text_area.append("Redirected URL is not HTTPS. No SSL certificate to retrieve.")
+            self.text_area.setText("Redirected URL is not HTTPS. No SSL certificate to retrieve.")
             return
 
         hostname = parsed.hostname

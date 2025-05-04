@@ -1,14 +1,32 @@
 import requests
+import ssl
+import socket
+import hashlib
+import os
+import json
 from urllib.parse import urlparse
-from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QTextEdit, QHBoxLayout
 from PyQt5.QtGui import QIcon
 
-class AnotherWindow(QWidget):
+class EditWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Edit Known Websites")
+        self.setWindowTitle("Save Known Websites")
         self.setWindowIcon(QIcon("static/favicon.png"))
-        self.setGeometry(150, 150, 400, 100)
+        self.setGeometry(150, 150, 400, 300)
+        
+        self.msg_box = QMessageBox()
+        self.msg_box.setIcon(QMessageBox.Critical)
+        self.msg_box.setText("Error")
+        self.msg_box.setInformativeText("Please enter a valid HTTPS URL.")
+        self.msg_box.setWindowTitle("Error")
+        
+        self.text_area = QTextEdit()
+        self.text_area.setReadOnly(True)
+        
+        self.ssl_info_label = QLabel("Web SSL Information:")
+        self.ssl_info_label.setStyleSheet("font-weight: bold;")
+        self.ssl_info_label.setBuddy(self.text_area)
 
         self.input_box_url = QLineEdit()
         self.input_box_url.setPlaceholderText("Enter Web URL (e.g. https://example.com)")
@@ -18,12 +36,22 @@ class AnotherWindow(QWidget):
         self.label_enter_url.setBuddy(self.input_box_url)
 
         self.submit_button = QPushButton("Fetch")
-        self.submit_button.clicked.connect(self.request_url)
-
+        self.submit_button.clicked.connect(self.fetch_known_web)
+        
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save_known_web)
+        self.save_button.setEnabled(False)
+        
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.submit_button)
+        button_layout.addWidget(self.save_button)
+        
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.label_enter_url)
         self.layout.addWidget(self.input_box_url)
-        self.layout.addWidget(self.submit_button)
+        self.layout.addWidget(self.ssl_info_label)
+        self.layout.addWidget(self.text_area)
+        self.layout.addLayout(button_layout)
         self.setLayout(self.layout)
 
     def request_url(self):
@@ -31,14 +59,105 @@ class AnotherWindow(QWidget):
         try:
             response = requests.get(url, allow_redirects=True, timeout=10)
             final_url = response.url
-            print(f"Final Redirected URL: {final_url}")
             return final_url
         except Exception as e:
-            print(f"Failed to get redirected URL: {e}")
+            self.msg_box.exec_()
             return
+    
+    def fetch_known_web(self):
+        final_url = self.request_url()
+        parsed = urlparse(final_url)
+        if parsed.scheme != "https":
+            self.msg_box.exec_()
+            return
+        hostname = parsed.hostname
+        port = parsed.port or 443
+        try:
+            context = ssl.create_default_context()
+            with socket.create_connection((hostname, port)) as sock:
+                with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                    cert = ssock.getpeercert()
+                    der_cert = ssock.getpeercert(binary_form=True)
+                    fingerprint = hashlib.sha256(der_cert).hexdigest()
+                    
+                    subject = dict(x[0] for x in cert.get('subject', []))
+                    issuer = dict(x[0] for x in cert.get('issuer', []))
+                    
+                    self.last_cert_data = {
+                        "subject": {
+                            "commonName": subject.get("commonName", "<Not Provided>"),
+                            "organizationName": subject.get("organizationName", "<Not Provided>"),
+                            "organizationalUnit": subject.get("organizationalUnitName", "<Not Provided>")
+                        },
+                        "issuer": {
+                            "commonName": issuer.get("commonName", "<Not Provided>"),
+                            "organizationName": issuer.get("organizationName", "<Not Provided>"),
+                            "organizationalUnit": issuer.get("organizationalUnitName", "<Not Provided>")
+                        },
+                        "fingerprint": fingerprint
+                    }
+                    self.last_hostname = hostname
+                    self.save_button.setEnabled(True)
+
+                    self.text_area.append("SSL Certificate Issued To:")
+                    self.text_area.append(f"Common Name (CN): {subject.get('commonName', '<Not Part Of Certificate>')}")
+                    self.text_area.append(f"Organization (O): {subject.get('organizationName', '<Not Part Of Certificate>')}")
+                    self.text_area.append(f"Organizational Unit (OU): {subject.get('organizationalUnitName', '<Not Part Of Certificate>')}\n")
+
+                    self.text_area.append("SSL Certificate Issued By:")
+                    self.text_area.append(f"Common Name (CN): {issuer.get('commonName', '<Not Part Of Certificate>')}")
+                    self.text_area.append(f"Organization (O): {issuer.get('organizationName', '<Not Part Of Certificate>')}")
+                    self.text_area.append(f"Organizational Unit (OU): {issuer.get('organizationalUnitName', '<Not Part Of Certificate>')}\n")
+
+                    self.text_area.append(f"SHA-256 Fingerprint:\n{fingerprint}")
+        except Exception as e:
+            self.msg_box.exec_()
+    
+    def save_known_web(self):
+        try:
+            os.makedirs("storage", exist_ok=True)
+            file_path = "storage/known_web.json"
+            if os.path.exists(file_path):
+                with open(file_path, "r") as f:
+                    known_webs = json.load(f)
+            else:
+                known_webs = {}
+            
+            cert_data = {
+                "subject": {
+                    "commonName": self.last_cert_data["subject"].get("commonName"),
+                    "organizationName": self.last_cert_data["subject"].get("organizationName"),
+                    "organizationalUnit": self.last_cert_data["subject"].get("organizationalUnit")
+                },
+                "issuer": {
+                    "commonName": self.last_cert_data["issuer"].get("commonName"),
+                    "organizationName": self.last_cert_data["issuer"].get("organizationName"),
+                    "organizationalUnit": self.last_cert_data["issuer"].get("organizationalUnit")
+                },
+                "fingerprint": self.last_cert_data.get("fingerprint"),
+            }
+            
+            known_webs[self.last_hostname] = cert_data
+            
+            with open(file_path, "w") as f:
+                json.dump(known_webs, f, indent=2)
+            self.msg_box.setIcon(QMessageBox.Information)
+            self.msg_box.setText("Success")
+            self.msg_box.setWindowTitle("Saved")
+            self.msg_box.setInformativeText(f"Certificate for '{self.last_hostname}' saved.")
+            self.msg_box.exec_()
+            self.save_button.setEnabled(False)
+        except Exception as e:
+            self.msg_box.setIcon(QMessageBox.Critical)
+            self.msg_box.setText("Error")
+            self.msg_box.setWindowTitle("Save Failed")
+            self.msg_box.setInformativeText(f"Failed to save: {e}")
+            self.msg_box.exec_()
+            
 
     def close_window(self):
         self.hide()
 
     def get_url(self):
         return self.input_box_url.text().strip()
+    
