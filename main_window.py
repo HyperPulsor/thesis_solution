@@ -18,6 +18,7 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
 
         self.window1 = EditWindow()
+        self.window1.website_saved.connect(self.load_known_sites)
         
         self.msg = QMessageBox()
         self.msg.setIcon(QMessageBox.Critical)

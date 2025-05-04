@@ -7,8 +7,10 @@ import json
 from urllib.parse import urlparse
 from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QTextEdit, QHBoxLayout
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import pyqtSignal
 
 class EditWindow(QWidget):
+    website_saved = pyqtSignal()
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Save Known Websites")
@@ -147,6 +149,7 @@ class EditWindow(QWidget):
             self.msg_box.setInformativeText(f"Certificate for '{self.last_hostname}' saved.")
             self.msg_box.exec_()
             self.save_button.setEnabled(False)
+            self.website_saved.emit()
         except Exception as e:
             self.msg_box.setIcon(QMessageBox.Critical)
             self.msg_box.setText("Error")
