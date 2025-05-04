@@ -13,7 +13,8 @@ from PyQt5.QtWidgets import (QApplication,
                              QWidget,
                              QLabel,
                              QLineEdit,
-                             QMessageBox)
+                             QMessageBox,
+                             QComboBox)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 
@@ -39,10 +40,13 @@ class MainWindow(QMainWindow):
         self.text_area_issues.setReadOnly(True)
         
         self.button_set_legit_web = QPushButton("Set Legitimate Web")
-        self.button_set_legit_web.clicked.connect(self.toggle_window1)
+        self.button_set_legit_web.clicked.connect(self.toggle_window)
         
         self.button_verify = QPushButton("Verify Web Authenticity")
         self.button_verify.clicked.connect(self.get_ssl_cert_captive)
+        
+        self.button_save_web = QPushButton("Edit Known Websites")
+        self.button_save_web.clicked.connect(self.toggle_window)
         
         self.final_redirect_label = QLabel("Final Redirected URL: ")
         self.final_redirect_label.setStyleSheet("font-weight: bold;")
@@ -51,17 +55,29 @@ class MainWindow(QMainWindow):
         self.ssl_info_label.setStyleSheet("font-weight: bold;")
         self.ssl_info_label.setBuddy(self.text_area)
         
+        self.dropdown_label = QLabel("Select Known Trusted Website:")
+        self.dropdown_label.setStyleSheet("font-weight: bold;")
+        self.dropdown = QComboBox()
+        self.load_known_sites()
+        
         self.issues_label = QLabel("Identified Issues:")
         self.issues_label.setStyleSheet("font-weight: bold;")
+        self.issues_label.setWordWrap(True)
         self.issues_label.setBuddy(self.text_area_issues)
         
         self.result_label = QLabel("")
-        self.result_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 6px;")
         self.result_label.setText("Ready to verify!")
+        self.result_label.setStyleSheet("""
+            background-color: #d9edf7;
+            font-size: 17px;
+            color: #31708f;
+            border: 1px solid #bce8f1;""")
         self.result_label.setAlignment(Qt.AlignCenter)
         
         self.layout = QVBoxLayout()
-        # self.layout.addWidget(self.button_set_legit_web)
+        self.layout.addWidget(self.dropdown_label)
+        self.layout.addWidget(self.dropdown)
+        self.layout.addWidget(self.button_save_web)
         self.layout.addWidget(self.button_verify)
         self.layout.addWidget(self.final_redirect_label)
         self.layout.addWidget(self.ssl_info_label)
@@ -75,23 +91,26 @@ class MainWindow(QMainWindow):
         
         self.setCentralWidget(self.container)
         
-    # def handle_verify_click(self):
-    #     url = self.window1.get_url()
-    #     if not url:
-    #         self.msg.exec_()
-    #         return
-    #     self.get_ssl_cert_captive(url)
+    def toggle_window(self, checked):
+        if self.window1.isVisible():
+            self.window1.hide()
+        else:
+            self.window1.show()
+    
+    def load_known_sites(self):
+        self.dropdown.clear()
+        try:
+            with open('storage/known_web.json', 'r') as f:
+                known_webs = json.load(f)
+            for domain in known_webs.keys():
+                self.dropdown.addItem(domain)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.dropdown.addItem("No known sites found")
     
     def get_known_webs(self):
         with open('storage/known_web.json') as f:
             d = json.load(f)
         return d
-    
-    def toggle_window1(self, checked):
-        if self.window1.isVisible():
-            self.window1.hide()
-        else:
-            self.window1.show()
             
     def request_url(self):
         # url = "http://www.msftconnecttest.com/redirect"
@@ -134,24 +153,31 @@ class MainWindow(QMainWindow):
         
         if issues:
             self.text_area_issues.setText("SSL Certificate MISMATCH detected!")
-            self.result_label.setStyleSheet("color: red; font-weight: bold; font-size: 14px; padding: 10px;")
-            self.result_label.setText("Web is not Authenticated")
+            self.result_label.setStyleSheet("""
+                background-color: #f2dede;
+                font-size: 17px;
+                color: #a94442;
+                border: 1px solid #ebccd1;""")
+            self.result_label.setText("Website Identity Could Not Be Verified")
             for issue in issues:
                 self.text_area_issues.append(f"- {issue}")
-            return False
         else:
             self.text_area_issues.setText("None")
-            self.result_label.setStyleSheet("color: green; font-weight: bold; font-size: 14px; padding: 10px;")
-            self.result_label.setText("Web is Authenticated")
-            return True
+            self.result_label.setStyleSheet("""
+                background-color: #dff0d8;
+                font-size: 17px;
+                color: #3c763d;
+                border: 1px solid #d6e9c6;""")
+            self.result_label.setText("Website Successfully Verified")
         
         
     def get_ssl_cert_captive(self):
+        self.text_area.clear()
         final_url = self.request_url()
         list_known_webs = self.get_known_webs()
+        selected_domain = self.dropdown.currentText()
         
-        # TODO: Change to scale
-        ui_web = list_known_webs["sso.ui.ac.id"]
+        ui_web = list_known_webs[selected_domain]
 
         parsed = urlparse(final_url)
         if parsed.scheme != "https":
@@ -172,13 +198,13 @@ class MainWindow(QMainWindow):
                     subject = dict(x[0] for x in cert.get('subject', []))
                     issuer = dict(x[0] for x in cert.get('issuer', []))
                     
-                    common_name = subject.get('commonName', 'N/A')
-                    organization = subject.get('organizationName', 'N/A')
-                    org_unit = subject.get('organizationalUnitName', 'N/A')
+                    common_name = subject.get('commonName', '<Not Part Of Certificate>')
+                    organization = subject.get('organizationName', '<Not Part Of Certificate>')
+                    org_unit = subject.get('organizationalUnitName', '<Not Part Of Certificate>')
                     
-                    issuer_common_name = issuer.get('commonName', 'N/A')
-                    issuer_organization = issuer.get('organizationName', 'N/A')
-                    issuer_org_unit = issuer.get('organizationalUnitName', 'N/A')
+                    issuer_common_name = issuer.get('commonName', '<Not Part Of Certificate>')
+                    issuer_organization = issuer.get('organizationName', '<Not Part Of Certificate>')
+                    issuer_org_unit = issuer.get('organizationalUnitName', '<Not Part Of Certificate>')
                     
                     self.text_area.append("SSL Certificate Issued To:")
                     self.text_area.append(f"Common Name (CN): {common_name}")
@@ -199,22 +225,35 @@ class MainWindow(QMainWindow):
 class AnotherWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Set Legitimate Web")
+        self.setWindowTitle("Edit Known Websites")
         self.setWindowIcon(QIcon("static/favicon.png"))
-        self.setGeometry(150, 150, 400, 150)
+        self.setGeometry(150, 150, 400, 100)
         
         self.input_box_url = QLineEdit()
         self.input_box_url.setPlaceholderText("Enter Web URL (e.g. https://example.com)")
         
-        self.submit_button = QPushButton("Submit")
-        self.submit_button.clicked.connect(self.close_window)
+        self.label_enter_url = QLabel("Enter HTTPS Web URL:")
+        self.label_enter_url.setStyleSheet("font-weight: bold;")
+        self.label_enter_url.setBuddy(self.input_box_url)
+        
+        self.submit_button = QPushButton("Fetch")
+        self.submit_button.clicked.connect(self.request_url)
         
         self.layout = QVBoxLayout()
-        self.label = QLabel("Another Window")
-        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.label_enter_url)
         self.layout.addWidget(self.input_box_url)
         self.layout.addWidget(self.submit_button)
         self.setLayout(self.layout)
+    
+    def request_url(self):
+        url = self.get_url()
+        try:
+            response = requests.get(url, allow_redirects=True, timeout=10)
+            final_url = response.url
+            return final_url
+        except Exception as e:
+            self.text_area.setText(f"Failed to get redirected URL: {e}")
+            return
     
     def close_window(self):
         self.hide()
