@@ -73,12 +73,12 @@ class EditWindow(QWidget):
         if parsed.scheme != "https":
             self.msg_box.exec_()
             return
-        hostname = parsed.hostname
+        self.hostname = parsed.hostname
         port = parsed.port or 443
         try:
             context = ssl.create_default_context()
-            with socket.create_connection((hostname, port)) as sock:
-                with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+            with socket.create_connection((self.hostname, port)) as sock:
+                with context.wrap_socket(sock, server_hostname=self.hostname) as ssock:
                     cert = ssock.getpeercert()
                     der_cert = ssock.getpeercert(binary_form=True)
                     fingerprint = hashlib.sha256(der_cert).hexdigest()
@@ -88,18 +88,18 @@ class EditWindow(QWidget):
                     
                     self.last_cert_data = {
                         "subject": {
-                            "commonName": subject.get("commonName", "<Not Provided>"),
-                            "organizationName": subject.get("organizationName", "<Not Provided>"),
-                            "organizationalUnit": subject.get("organizationalUnitName", "<Not Provided>")
+                            "commonName": subject.get("commonName", None),
+                            "organizationName": subject.get("organizationName", None),
+                            "organizationalUnit": subject.get("organizationalUnitName", None)
                         },
                         "issuer": {
-                            "commonName": issuer.get("commonName", "<Not Provided>"),
-                            "organizationName": issuer.get("organizationName", "<Not Provided>"),
-                            "organizationalUnit": issuer.get("organizationalUnitName", "<Not Provided>")
+                            "commonName": issuer.get("commonName", None),
+                            "organizationName": issuer.get("organizationName", None),
+                            "organizationalUnit": issuer.get("organizationalUnitName", None)
                         },
                         "fingerprint": fingerprint
                     }
-                    self.last_hostname = hostname
+                    self.last_hostname = self.hostname
                     self.save_button.setEnabled(True)
 
                     self.text_area.append("SSL Certificate Issued To:")
@@ -117,46 +117,53 @@ class EditWindow(QWidget):
             self.msg_box.exec_()
     
     def save_known_web(self):
-        try:
-            os.makedirs("storage", exist_ok=True)
-            file_path = "storage/known_web.json"
-            if os.path.exists(file_path):
-                with open(file_path, "r") as f:
-                    known_webs = json.load(f)
-            else:
-                known_webs = {}
-            
-            cert_data = {
-                "subject": {
-                    "commonName": self.last_cert_data["subject"].get("commonName"),
-                    "organizationName": self.last_cert_data["subject"].get("organizationName"),
-                    "organizationalUnit": self.last_cert_data["subject"].get("organizationalUnit")
-                },
-                "issuer": {
-                    "commonName": self.last_cert_data["issuer"].get("commonName"),
-                    "organizationName": self.last_cert_data["issuer"].get("organizationName"),
-                    "organizationalUnit": self.last_cert_data["issuer"].get("organizationalUnit")
-                },
-                "fingerprint": self.last_cert_data.get("fingerprint"),
-            }
-            
-            known_webs[self.last_hostname] = cert_data
-            
-            with open(file_path, "w") as f:
-                json.dump(known_webs, f, indent=2)
-            self.msg_box.setIcon(QMessageBox.Information)
-            self.msg_box.setText("Success")
-            self.msg_box.setWindowTitle("Saved")
-            self.msg_box.setInformativeText(f"Certificate for '{self.last_hostname}' saved.")
-            self.msg_box.exec_()
-            self.save_button.setEnabled(False)
-            self.website_saved.emit()
-        except Exception as e:
-            self.msg_box.setIcon(QMessageBox.Critical)
-            self.msg_box.setText("Error")
-            self.msg_box.setWindowTitle("Save Failed")
-            self.msg_box.setInformativeText(f"Failed to save: {e}")
-            self.msg_box.exec_()
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Save",
+            f"Are you sure you want to Save '{self.hostname}'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if confirm == QMessageBox.Yes:
+            try:
+                os.makedirs("storage", exist_ok=True)
+                file_path = "storage/known_web.json"
+                if os.path.exists(file_path):
+                    with open(file_path, "r") as f:
+                        known_webs = json.load(f)
+                else:
+                    known_webs = {}
+                
+                cert_data = {
+                    "subject": {
+                        "commonName": self.last_cert_data["subject"].get("commonName"),
+                        "organizationName": self.last_cert_data["subject"].get("organizationName"),
+                        "organizationalUnit": self.last_cert_data["subject"].get("organizationalUnit")
+                    },
+                    "issuer": {
+                        "commonName": self.last_cert_data["issuer"].get("commonName"),
+                        "organizationName": self.last_cert_data["issuer"].get("organizationName"),
+                        "organizationalUnit": self.last_cert_data["issuer"].get("organizationalUnit")
+                    },
+                    "fingerprint": self.last_cert_data.get("fingerprint"),
+                }
+                
+                known_webs[self.last_hostname] = cert_data
+                
+                with open(file_path, "w") as f:
+                    json.dump(known_webs, f, indent=2)
+                self.msg_box.setIcon(QMessageBox.Information)
+                self.msg_box.setText("Success")
+                self.msg_box.setWindowTitle("Saved")
+                self.msg_box.setInformativeText(f"Certificate for '{self.last_hostname}' saved.")
+                self.msg_box.exec_()
+                self.save_button.setEnabled(False)
+                self.website_saved.emit()
+            except Exception as e:
+                self.msg_box.setIcon(QMessageBox.Critical)
+                self.msg_box.setText("Error")
+                self.msg_box.setWindowTitle("Save Failed")
+                self.msg_box.setInformativeText(f"Failed to save: {e}")
+                self.msg_box.exec_()
             
     def close_window(self):
         self.hide()
