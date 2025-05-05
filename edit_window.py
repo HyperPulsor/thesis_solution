@@ -26,7 +26,7 @@ class EditWindow(QWidget):
         self.text_area = QTextEdit()
         self.text_area.setReadOnly(True)
         
-        self.ssl_info_label = QLabel("Web SSL Information:")
+        self.ssl_info_label = QLabel("SSL Information:")
         self.ssl_info_label.setStyleSheet("font-weight: bold;")
         self.ssl_info_label.setBuddy(self.text_area)
 
@@ -67,6 +67,7 @@ class EditWindow(QWidget):
             return
     
     def fetch_known_web(self):
+        self.text_area.clear()
         final_url = self.request_url()
         parsed = urlparse(final_url)
         if parsed.scheme != "https":
@@ -102,14 +103,14 @@ class EditWindow(QWidget):
                     self.save_button.setEnabled(True)
 
                     self.text_area.append("SSL Certificate Issued To:")
-                    self.text_area.append(f"Common Name (CN): {subject.get('commonName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organization (O): {subject.get('organizationName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organizational Unit (OU): {subject.get('organizationalUnitName', '<Not Part Of Certificate>')}\n")
+                    self.text_area.append(f"Common Name (CN): {subject.get('commonName', None)}")
+                    self.text_area.append(f"Organization (O): {subject.get('organizationName', None)}")
+                    self.text_area.append(f"Organizational Unit (OU): {subject.get('organizationalUnitName', None)}\n")
 
                     self.text_area.append("SSL Certificate Issued By:")
-                    self.text_area.append(f"Common Name (CN): {issuer.get('commonName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organization (O): {issuer.get('organizationName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organizational Unit (OU): {issuer.get('organizationalUnitName', '<Not Part Of Certificate>')}\n")
+                    self.text_area.append(f"Common Name (CN): {issuer.get('commonName', None)}")
+                    self.text_area.append(f"Organization (O): {issuer.get('organizationName', None)}")
+                    self.text_area.append(f"Organizational Unit (OU): {issuer.get('organizationalUnitName', None)}\n")
 
                     self.text_area.append(f"SHA-256 Fingerprint:\n{fingerprint}")
         except Exception as e:
@@ -157,7 +158,6 @@ class EditWindow(QWidget):
             self.msg_box.setInformativeText(f"Failed to save: {e}")
             self.msg_box.exec_()
             
-
     def close_window(self):
         self.hide()
 

@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QPushButton, QVBoxLayout, Q
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from edit_window import EditWindow
+from delete_window import DeleteWindow
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -19,6 +20,9 @@ class MainWindow(QMainWindow):
 
         self.window1 = EditWindow()
         self.window1.website_saved.connect(self.load_known_sites)
+        
+        self.window2 = DeleteWindow(self.window1)
+        self.window2.website_deleted.connect(self.load_known_sites)
         
         self.msg = QMessageBox()
         self.msg.setIcon(QMessageBox.Critical)
@@ -32,24 +36,25 @@ class MainWindow(QMainWindow):
         self.text_area_issues = QTextEdit()
         self.text_area_issues.setReadOnly(True)
 
-        self.button_set_legit_web = QPushButton("Set Legitimate Web")
-        self.button_set_legit_web.clicked.connect(self.toggle_window)
-
         self.button_verify = QPushButton("Verify Web Authenticity")
         self.button_verify.clicked.connect(self.get_ssl_cert_captive)
 
-        self.button_save_web = QPushButton("Save Known Websites")
+        self.button_save_web = QPushButton("Save Known Domains")
         self.button_save_web.clicked.connect(self.toggle_window)
+        
+        self.button_delete_web = QPushButton("Delete Known Domains")
+        self.button_delete_web.clicked.connect(self.toggle_window2)
 
         self.final_redirect_label = QLabel("Final Redirected URL: ")
         self.final_redirect_label.setStyleSheet("font-weight: bold;")
 
-        self.ssl_info_label = QLabel("Web SSL Information:")
+        self.ssl_info_label = QLabel("SSL Information:")
         self.ssl_info_label.setStyleSheet("font-weight: bold;")
         self.ssl_info_label.setBuddy(self.text_area)
 
-        self.dropdown_label = QLabel("Select Known Trusted Website:")
+        self.dropdown_label = QLabel("Select Known Trusted Domain:")
         self.dropdown_label.setStyleSheet("font-weight: bold;")
+        
         self.dropdown = QComboBox()
         self.load_known_sites()
 
@@ -70,6 +75,7 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.dropdown_label)
         self.layout.addWidget(self.dropdown)
         self.layout.addWidget(self.button_save_web)
+        self.layout.addWidget(self.button_delete_web)
         self.layout.addWidget(self.button_verify)
         self.layout.addWidget(self.final_redirect_label)
         self.layout.addWidget(self.ssl_info_label)
@@ -88,6 +94,12 @@ class MainWindow(QMainWindow):
             self.window1.hide()
         else:
             self.window1.show()
+    
+    def toggle_window2(self, checked=None):
+        if self.window2.isVisible():
+            self.window2.hide()
+        else:
+            self.window2.show()
 
     def load_known_sites(self):
         self.dropdown.clear()
@@ -104,7 +116,7 @@ class MainWindow(QMainWindow):
             return json.load(f)
 
     def request_url(self):
-        url = "https://sso-ui-ac-id.work.gd/"
+        url = "http://www.msftconnecttest.com/redirect"
         try:
             response = requests.get(url, allow_redirects=True, timeout=10)
             final_url = response.url
@@ -147,7 +159,7 @@ class MainWindow(QMainWindow):
                 font-size: 17px;
                 color: #a94442;
                 border: 1px solid #ebccd1;""")
-            self.result_label.setText("Website Identity Could Not Be Verified")
+            self.result_label.setText("Domain Identity Could Not Be Verified")
             for issue in issues:
                 self.text_area_issues.append(f"- {issue}")
         else:
@@ -157,7 +169,7 @@ class MainWindow(QMainWindow):
                 font-size: 17px;
                 color: #3c763d;
                 border: 1px solid #d6e9c6;""")
-            self.result_label.setText("Website Successfully Verified")
+            self.result_label.setText("Domain Identity Successfully Verified")
 
     def get_ssl_cert_captive(self):
         self.text_area.clear()
@@ -166,7 +178,7 @@ class MainWindow(QMainWindow):
             return
         list_known_webs = self.get_known_webs()
         selected_domain = self.dropdown.currentText()
-        ui_web = list_known_webs.get(selected_domain, {})
+        known_domain = list_known_webs.get(selected_domain, {})
 
         parsed = urlparse(final_url)
         if parsed.scheme != "https":
@@ -187,16 +199,16 @@ class MainWindow(QMainWindow):
                     issuer = dict(x[0] for x in cert.get('issuer', []))
 
                     self.text_area.append("SSL Certificate Issued To:")
-                    self.text_area.append(f"Common Name (CN): {subject.get('commonName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organization (O): {subject.get('organizationName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organizational Unit (OU): {subject.get('organizationalUnitName', '<Not Part Of Certificate>')}\n")
+                    self.text_area.append(f"Common Name (CN): {subject.get('commonName', None)}")
+                    self.text_area.append(f"Organization (O): {subject.get('organizationName', None)}")
+                    self.text_area.append(f"Organizational Unit (OU): {subject.get('organizationalUnitName', None)}\n")
 
                     self.text_area.append("SSL Certificate Issued By:")
-                    self.text_area.append(f"Common Name (CN): {issuer.get('commonName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organization (O): {issuer.get('organizationName', '<Not Part Of Certificate>')}")
-                    self.text_area.append(f"Organizational Unit (OU): {issuer.get('organizationalUnitName', '<Not Part Of Certificate>')}\n")
+                    self.text_area.append(f"Common Name (CN): {issuer.get('commonName', None)}")
+                    self.text_area.append(f"Organization (O): {issuer.get('organizationName', None)}")
+                    self.text_area.append(f"Organizational Unit (OU): {issuer.get('organizationalUnitName', None)}\n")
 
                     self.text_area.append(f"SHA-256 Fingerprint:\n{fingerprint}")
-                    self.compare_ssl_to_known(subject, issuer, fingerprint, ui_web)
+                    self.compare_ssl_to_known(subject, issuer, fingerprint, known_domain)
         except Exception as e:
             self.text_area.setText(f"Error retrieving certificate: {e}")
