@@ -110,6 +110,13 @@ class MainWindow(QMainWindow):
                 self.dropdown.addItem(domain)
         except (FileNotFoundError, json.JSONDecodeError):
             self.dropdown.addItem("No known sites found")
+        self.update_verify_button_state()
+            
+    def update_verify_button_state(self):
+        if self.dropdown.currentText().strip() == "":
+            self.button_verify.setEnabled(False)
+        else:
+            self.button_verify.setEnabled(True)
 
     def get_known_webs(self):
         with open('storage/known_web.json') as f:
