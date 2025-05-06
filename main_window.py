@@ -32,6 +32,10 @@ class MainWindow(QMainWindow):
 
         self.text_area = QTextEdit()
         self.text_area.setReadOnly(True)
+        
+        self.text_area_url = QTextEdit()
+        self.text_area_url.setReadOnly(True)
+        self.text_area_url.setFixedHeight(30)
 
         self.text_area_issues = QTextEdit()
         self.text_area_issues.setReadOnly(True)
@@ -47,6 +51,7 @@ class MainWindow(QMainWindow):
 
         self.final_redirect_label = QLabel("Final Redirected URL: ")
         self.final_redirect_label.setStyleSheet("font-weight: bold;")
+        self.final_redirect_label.setBuddy(self.text_area_url)
 
         self.ssl_info_label = QLabel("SSL Information:")
         self.ssl_info_label.setStyleSheet("font-weight: bold;")
@@ -78,6 +83,7 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.button_delete_web)
         self.layout.addWidget(self.button_verify)
         self.layout.addWidget(self.final_redirect_label)
+        self.layout.addWidget(self.text_area_url)
         self.layout.addWidget(self.ssl_info_label)
         self.layout.addWidget(self.text_area)
         self.layout.addWidget(self.issues_label)
@@ -127,10 +133,11 @@ class MainWindow(QMainWindow):
         try:
             response = requests.get(url, allow_redirects=True, timeout=10)
             final_url = response.url
-            self.final_redirect_label.setText(f"Final Redirected URL: {final_url}")
+            # self.final_redirect_label.setText(f"Final Redirected URL: {final_url}")
+            self.text_area_url.setText(final_url)
             return final_url
         except Exception as e:
-            self.text_area.setText(f"Failed to get redirected URL: {e}")
+            self.text_area_url.setText(f"Failed to get redirected URL: {e}")
             return
 
     def compare_ssl_to_known(self, subject, issuer, fingerprint, known_cert_data):
