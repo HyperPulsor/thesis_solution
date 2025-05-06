@@ -35,7 +35,6 @@ class MainWindow(QMainWindow):
         
         self.text_area_url = QTextEdit()
         self.text_area_url.setReadOnly(True)
-        self.text_area_url.setFixedHeight(30)
 
         self.text_area_issues = QTextEdit()
         self.text_area_issues.setReadOnly(True)
