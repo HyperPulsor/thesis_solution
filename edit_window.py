@@ -145,6 +145,7 @@ class EditWindow(QWidget):
                         "organizationalUnit": self.last_cert_data["issuer"].get("organizationalUnit")
                     },
                     "fingerprint": self.last_cert_data.get("fingerprint"),
+                    "active": False
                 }
                 
                 known_webs[self.last_hostname] = cert_data

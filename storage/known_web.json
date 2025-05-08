@@ -10,6 +10,7 @@
       "organizationName": "Let's Encrypt",
       "organizationalUnit": null
     },
-    "fingerprint": "f4dc1c77bb770c13108f3a800683abd6b6b850a849c8dd74954f5eae4d5d6891"
+    "fingerprint": "f4dc1c77bb770c13108f3a800683abd6b6b850a849c8dd74954f5eae4d5d6891",
+    "active": true
   }
 }
