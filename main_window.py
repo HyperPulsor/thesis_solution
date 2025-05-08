@@ -3,7 +3,9 @@ import ssl
 import requests
 import hashlib
 import json
+import re
 from urllib.parse import urlparse
+from rapidfuzz import fuzz
 from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QPushButton, QVBoxLayout, QWidget,
                              QLabel, QMessageBox, QComboBox)
 from PyQt5.QtGui import QIcon
@@ -38,6 +40,9 @@ class MainWindow(QMainWindow):
 
         self.text_area_issues = QTextEdit()
         self.text_area_issues.setReadOnly(True)
+        
+        self.text_area_url.setFixedHeight(45)
+        self.text_area.setFixedHeight(210)
 
         self.button_verify = QPushButton("Verify Web Authenticity")
         self.button_verify.clicked.connect(self.get_ssl_cert_captive)
@@ -61,6 +66,7 @@ class MainWindow(QMainWindow):
         
         self.dropdown = QComboBox()
         self.load_known_sites()
+        self.dropdown.currentIndexChanged.connect(self.on_dropdown_change)
 
         self.issues_label = QLabel("Identified Issues:")
         self.issues_label.setStyleSheet("font-weight: bold;")
@@ -80,7 +86,6 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.dropdown)
         self.layout.addWidget(self.button_save_web)
         self.layout.addWidget(self.button_delete_web)
-        self.layout.addWidget(self.button_verify)
         self.layout.addWidget(self.final_redirect_label)
         self.layout.addWidget(self.text_area_url)
         self.layout.addWidget(self.ssl_info_label)
@@ -93,7 +98,21 @@ class MainWindow(QMainWindow):
         self.container.setLayout(self.layout)
 
         self.setCentralWidget(self.container)
-
+        self.run_validity_check()
+        
+    def on_dropdown_change(self, index):
+        selected_domain = self.dropdown.itemText(index)
+        known_webs = self.get_known_webs()
+        if selected_domain in known_webs:
+            self.get_ssl_cert_captive()
+        
+    def run_validity_check(self):
+        url = self.request_url()
+        known_webs = self.get_known_webs()
+        similar_domain = self.get_similar_known_domain(url, known_webs)
+        self.dropdown.setCurrentText(similar_domain)
+        self.on_dropdown_change(self.dropdown.currentIndex())
+        
     def toggle_window(self, checked=None):
         if self.window1.isVisible():
             self.window1.hide()
@@ -126,13 +145,32 @@ class MainWindow(QMainWindow):
     def get_known_webs(self):
         with open('storage/known_web.json') as f:
             return json.load(f)
+        
+    def normalize(self, domain):
+        return re.sub(r'\W+', '', domain.lower())
+        
+    def get_similar_known_domain(self, domain1, known_webs: dict, threshold=75):
+        max_similarity = 0
+        best_match = None
+        parsed_captive_url = urlparse(domain1)
+        hostname_captive_url = parsed_captive_url.hostname
+        norm_hostname_captive_url = self.normalize(hostname_captive_url)
+        
+        for hostname_known_domain in known_webs:
+            norm_hostname_known = self.normalize(hostname_known_domain)
+            similarity = fuzz.ratio(norm_hostname_captive_url, norm_hostname_known)
+            if similarity > max_similarity:
+                max_similarity = similarity
+                best_match = hostname_known_domain
+        if max_similarity >= threshold:
+            return best_match
+        
 
     def request_url(self):
         url = "http://www.msftconnecttest.com/redirect"
         try:
             response = requests.get(url, allow_redirects=True, timeout=10)
             final_url = response.url
-            # self.final_redirect_label.setText(f"Final Redirected URL: {final_url}")
             self.text_area_url.setText(final_url)
             return final_url
         except Exception as e:
