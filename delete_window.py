@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QWidget, QLabel, QComboBox, QTextEdit, QPushButton, 
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal
 from edit_window import EditWindow
+from paths import BASE_DIR
 
 class DeleteWindow(QWidget):
     website_deleted = pyqtSignal()
@@ -24,6 +25,7 @@ class DeleteWindow(QWidget):
         
         self.delete_button = QPushButton("Delete")
         self.delete_button.clicked.connect(self.delete_known_web)
+        self.delete_button.setEnabled(False)
         
         self.dropdown_label = QLabel("Select Known Domain:")
         self.dropdown_label.setStyleSheet("font-weight: bold;")
@@ -48,9 +50,10 @@ class DeleteWindow(QWidget):
         self.setLayout(self.layout)
     
     def load_known_domain(self):
+        known_web_path = BASE_DIR / "storage" / "known_web.json"
         self.dropdown.clear()
         try:
-            with open('storage/known_web.json', 'r') as f:
+            with open(known_web_path, 'r') as f:
                 known_webs = json.load(f)
             for domain in known_webs.keys():
                 self.dropdown.addItem(domain)
@@ -58,7 +61,8 @@ class DeleteWindow(QWidget):
             self.dropdown.addItem("No known sites found")
     
     def get_known_webs(self):
-        with open('storage/known_web.json') as f:
+        known_web_path = BASE_DIR / "storage" / "known_web.json"
+        with open(known_web_path) as f:
             return json.load(f)
     
     def fetch_selected_domain(self):
@@ -67,6 +71,7 @@ class DeleteWindow(QWidget):
         self.selected_dropdown_domain = self.dropdown.currentText()
         self.selected_domain = known_webs.get(self.selected_dropdown_domain)
         self.delete_button.setEnabled(True)
+        
         if not self.selected_domain:
             self.text_area.setText("No data available.")
             self.delete_button.setEnabled(False)
@@ -93,7 +98,7 @@ class DeleteWindow(QWidget):
         if not self.selected_domain:
             return
 
-        file_path = "storage/known_web.json"
+        file_path = BASE_DIR / "storage" / "known_web.json"
         if not os.path.exists(file_path):
             return
 

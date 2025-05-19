@@ -3,15 +3,14 @@ import ssl
 import requests
 import hashlib
 import json
-import re
 from urllib.parse import urlparse
-from rapidfuzz import fuzz
 from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QPushButton, QVBoxLayout, QWidget, QHBoxLayout,
                              QLabel, QMessageBox, QComboBox)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from edit_window import EditWindow
 from delete_window import DeleteWindow
+from paths import BASE_DIR
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -98,7 +97,7 @@ class MainWindow(QMainWindow):
         self.button_layout = QHBoxLayout()
         self.button_layout.setContentsMargins(0, 0, 0, 0)
         self.button_layout.addWidget(self.dropdown, stretch=4)
-        self.button_layout.addWidget(self.button_set_active, stretch=1)
+        # self.button_layout.addWidget(self.button_set_active, stretch=1)
         
         self.button_container = QWidget()
         self.button_container.setLayout(self.button_layout)
@@ -107,8 +106,8 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.dropdown_label)
         self.layout.addWidget(self.button_container)
         self.layout.addWidget(self.active_domain_label)
-        self.layout.addWidget(self.button_save_web)
-        self.layout.addWidget(self.button_delete_web)
+        # self.layout.addWidget(self.button_save_web)
+        # self.layout.addWidget(self.button_delete_web)
         self.layout.addWidget(self.final_redirect_label)
         self.layout.addWidget(self.text_area_url)
         self.layout.addWidget(self.ssl_info_label)
@@ -125,18 +124,19 @@ class MainWindow(QMainWindow):
         self.get_ssl_cert_captive()
         
     def set_active_domain(self):
+        known_web_path = BASE_DIR / "storage" / "known_web.json"
         selected_domain = self.dropdown.currentText()
         if not selected_domain:
             QMessageBox.warning(self, "Warning", "Please select a valid domain.")
             return
         try:
-            with open("storage/known_web.json", "r") as f:
+            with open(known_web_path, "r") as f:
                 known_webs = json.load(f)
 
             for domain in known_webs:
                 known_webs[domain]["active"] = (domain == selected_domain)
 
-            with open("storage/known_web.json", "w") as f:
+            with open(known_web_path, "w") as f:
                 json.dump(known_webs, f, indent=2)
 
             QMessageBox.information(self, "Success", f"'{selected_domain}' is now the active domain.")
@@ -170,10 +170,11 @@ class MainWindow(QMainWindow):
             self.window2.show()
 
     def load_known_sites(self):
+        known_web_path = BASE_DIR / "storage" / "known_web.json"
         self.dropdown.clear()
         active_domain = None
         try:
-            with open('storage/known_web.json', 'r') as f:
+            with open(known_web_path, 'r') as f:
                 known_webs = json.load(f)
             for domain in known_webs.keys():
                 self.dropdown.addItem(domain)
@@ -202,28 +203,9 @@ class MainWindow(QMainWindow):
             self.button_set_active.setEnabled(True)
 
     def get_known_webs(self):
-        with open('storage/known_web.json') as f:
+        known_web_path = BASE_DIR / "storage" / "known_web.json"
+        with open(known_web_path) as f:
             return json.load(f)
-        
-    # def normalize(self, domain):
-    #     return re.sub(r'\W+', '', domain.lower())
-        
-    # def get_similar_known_domain(self, domain1, known_webs: dict, threshold=75):
-    #     max_similarity = 0
-    #     best_match = None
-    #     parsed_captive_url = urlparse(domain1)
-    #     hostname_captive_url = parsed_captive_url.hostname
-    #     norm_hostname_captive_url = self.normalize(hostname_captive_url)
-        
-    #     for hostname_known_domain in known_webs:
-    #         norm_hostname_known = self.normalize(hostname_known_domain)
-    #         similarity = fuzz.ratio(norm_hostname_captive_url, norm_hostname_known)
-    #         if similarity > max_similarity:
-    #             max_similarity = similarity
-    #             best_match = hostname_known_domain
-    #     if max_similarity >= threshold:
-    #         return best_match
-        
 
     def request_url(self):
         url = "http://www.msftconnecttest.com/redirect"
@@ -290,6 +272,11 @@ class MainWindow(QMainWindow):
             return
         list_known_webs = self.get_known_webs()
         selected_domain = self.dropdown.currentText()
+        
+        if not list_known_webs or selected_domain not in list_known_webs:
+            self.text_area.setText("No known domain selected or available for comparison.")
+            return
+        
         known_domain = list_known_webs.get(selected_domain, {})
 
         parsed = urlparse(final_url)

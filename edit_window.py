@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QTextEdit, QHBoxLayout
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal
+from paths import BASE_DIR
 
 class EditWindow(QWidget):
     website_saved = pyqtSignal()
@@ -126,7 +127,7 @@ class EditWindow(QWidget):
         if confirm == QMessageBox.Yes:
             try:
                 os.makedirs("storage", exist_ok=True)
-                file_path = "storage/known_web.json"
+                file_path = BASE_DIR / "storage" / "known_web.json"
                 if os.path.exists(file_path):
                     with open(file_path, "r") as f:
                         known_webs = json.load(f)

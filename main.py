@@ -2,16 +2,29 @@ import sys
 import os
 import json
 import requests
+from pathlib import Path
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QTimer
 from main_window import MainWindow
+from paths import BASE_DIR
 
 def ensure_known_web_storage():
-    os.makedirs("storage", exist_ok=True)
-    known_web_path = "storage/known_web.json"
+    os.makedirs(BASE_DIR / "storage", exist_ok=True)
+    known_web_path = BASE_DIR / "storage" / "known_web.json"
     if not os.path.isfile(known_web_path):
         with open(known_web_path, 'w') as f:
             json.dump({}, f)
+            
+def check_known_web_content():
+    known_web_path = BASE_DIR / "storage" / "known_web.json"
+    try:
+        with open(known_web_path, 'r') as f:
+            data = json.load(f)
+            if not data:
+                return False
+            return True
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        return False
 
 def is_captive_portal():
     # Windows URL
@@ -29,27 +42,19 @@ def is_captive_portal():
         else:
             return False
     except requests.RequestException as e:
-        print("Error:", e)
         return False
-
 
 def main():
     ensure_known_web_storage()
     app = QApplication(sys.argv)
-
-    if not is_captive_portal():
-        confirm = QMessageBox.question(
-            None,
-            "No Captive Portal",
-            "No captive portal detected. Do you want to configure Captive Portal Authenticator?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if confirm == QMessageBox.No:
-            sys.exit(0)
-            
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
+    
+    has_known_webs = check_known_web_content()
+    is_captive = is_captive_portal()
+    
+    if is_captive and has_known_webs:
+        window = MainWindow()
+        window.show()
+        sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
