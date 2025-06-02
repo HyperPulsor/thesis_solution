@@ -11,7 +11,7 @@ class DeleteWindow(QWidget):
     def __init__(self, shared_edit_window: EditWindow):
         super().__init__()
         self.setWindowTitle("Delete Known Domains")
-        self.setWindowIcon(QIcon("static/favicon.png"))
+        self.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
         self.setGeometry(150, 150, 400, 300)
         
         self.window_edit = shared_edit_window
@@ -125,6 +125,7 @@ class DeleteWindow(QWidget):
                     self.msg_box.setText("Success")
                     self.msg_box.setWindowTitle("Deleted")
                     self.msg_box.setInformativeText(f"Domain for '{selected_temp_domain}' has been deleted.")
+                    self.msg_box.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
                     self.msg_box.exec_()
                     self.website_deleted.emit()
                 else:

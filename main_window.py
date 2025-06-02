@@ -3,11 +3,13 @@ import ssl
 import requests
 import hashlib
 import json
+import subprocess
+import webbrowser
 from urllib.parse import urlparse
 from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QPushButton, QVBoxLayout, QWidget, QHBoxLayout,
                              QLabel, QMessageBox, QComboBox)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from edit_window import EditWindow
 from delete_window import DeleteWindow
 from paths import BASE_DIR
@@ -16,7 +18,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Captive Portal Authenticator")
-        self.setWindowIcon(QIcon("static/favicon.png"))
+        self.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
         self.setGeometry(100, 100, 800, 600)
         
         self.button_set_active = QPushButton("Set as Active")
@@ -74,11 +76,12 @@ class MainWindow(QMainWindow):
         self.ssl_info_label.setStyleSheet("font-weight: bold;")
         self.ssl_info_label.setBuddy(self.text_area)
 
-        self.dropdown_label = QLabel("Select Known Trusted Domain:")
+        self.dropdown_label = QLabel("Selected Known Trusted Domain:")
         self.dropdown_label.setStyleSheet("font-weight: bold;")
         
         self.dropdown = QComboBox()
         self.load_known_sites()
+        self.dropdown.setEnabled(False)
         self.dropdown.currentIndexChanged.connect(self.on_dropdown_change)
 
         self.issues_label = QLabel("Identified Issues:")
@@ -218,7 +221,7 @@ class MainWindow(QMainWindow):
             self.text_area_url.setText(f"Failed to get redirected URL: {e}")
             return
 
-    def compare_ssl_to_known(self, subject, issuer, fingerprint, known_cert_data):
+    def compare_ssl_to_known(self, subject, issuer, fingerprint, known_cert_data, hostname):
         issues = []
 
         subject_fields = {
@@ -245,6 +248,7 @@ class MainWindow(QMainWindow):
             issues.append("SHA-256 fingerprint mismatch")
 
         if issues:
+            self.block_access(hostname)
             self.text_area_issues.setText("SSL Certificate MISMATCH detected!")
             self.result_label.setStyleSheet("""
                 background-color: #f2dede;
@@ -256,6 +260,7 @@ class MainWindow(QMainWindow):
             for issue in issues:
                 self.text_area_issues.append(f"- {issue}")
         else:
+            webbrowser.open(self.text_area_url.toPlainText())
             self.text_area_issues.setText("None")
             self.result_label.setStyleSheet("""
                 background-color: #dff0d8;
@@ -264,6 +269,7 @@ class MainWindow(QMainWindow):
                 color: #3c763d;
                 border: 1px solid #d6e9c6;""")
             self.result_label.setText("Domain Identity Successfully Verified")
+        QTimer.singleShot(10000, self.close)
 
     def get_ssl_cert_captive(self):
         self.text_area.clear()
@@ -308,6 +314,25 @@ class MainWindow(QMainWindow):
                     self.text_area.append(f"Organizational Unit (OU): {issuer.get('organizationalUnitName', None)}\n")
 
                     self.text_area.append(f"SHA-256 Fingerprint:\n{fingerprint}")
-                    self.compare_ssl_to_known(subject, issuer, fingerprint, known_domain)
+                    self.compare_ssl_to_known(subject, issuer, fingerprint, known_domain, hostname)
         except Exception as e:
             self.text_area.setText(f"Error retrieving certificate: {e}")
+    
+    def block_access(self, hostname):
+        ip_address = socket.gethostbyname(hostname)
+        rule_name = f"BlockCaptivePortal{hostname}"
+        command = f'netsh advfirewall firewall add rule name="{rule_name}" dir=out action=block remoteip={ip_address}'
+        try:
+            if self.firewall_rule_exists(rule_name):
+                return
+            subprocess.run(command, shell=True, check=True)
+            print(f"Blocked {ip_address} via Windows Firewall")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to add rule: {e}")
+        except PermissionError:
+            print("Permission denied: Run as administrator.")
+
+    def firewall_rule_exists(self, rule_name):
+        command = f'netsh advfirewall firewall show rule name="{rule_name}"'
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        return "No rules match" not in result.stdout

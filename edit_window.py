@@ -15,7 +15,7 @@ class EditWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Save Known Websites")
-        self.setWindowIcon(QIcon("static/favicon.png"))
+        self.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
         self.setGeometry(150, 150, 400, 300)
         
         self.msg_box = QMessageBox()
@@ -157,6 +157,7 @@ class EditWindow(QWidget):
                 self.msg_box.setText("Success")
                 self.msg_box.setWindowTitle("Saved")
                 self.msg_box.setInformativeText(f"Certificate for '{self.last_hostname}' saved.")
+                self.msg_box.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
                 self.msg_box.exec_()
                 self.save_button.setEnabled(False)
                 self.website_saved.emit()
@@ -165,6 +166,7 @@ class EditWindow(QWidget):
                 self.msg_box.setText("Error")
                 self.msg_box.setWindowTitle("Save Failed")
                 self.msg_box.setInformativeText(f"Failed to save: {e}")
+                self.msg_box.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
                 self.msg_box.exec_()
             
     def close_window(self):

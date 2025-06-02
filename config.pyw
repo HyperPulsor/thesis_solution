@@ -18,7 +18,7 @@ class ConfigTool(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Configuration Tool")
-        self.setWindowIcon(QIcon("static/favicon.png"))
+        self.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
         self.setGeometry(200, 200, 500, 150)
 
         self.edit_window = EditWindow()
@@ -110,10 +110,22 @@ class ConfigTool(QWidget):
             with open(known_web_path, "w") as f:
                 json.dump(known_webs, f, indent=2)
 
-            QMessageBox.information(self, "Success", f"'{selected_domain}' is now the active domain.")
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Success")
+            msg.setText(f"'{selected_domain}' is now the active domain.")
+            msg.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))
+            msg.exec_()
+            
             self.active_domain_label.show()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to set active domain:\n{e}")
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText("Failed to set active domain")
+            msg.setInformativeText(str(e))
+            msg.setWindowIcon(QIcon(f"{BASE_DIR}/static/favicon.png"))  # Custom icon
+            msg.exec_()
             
     def load_known_sites(self):
         known_web_path = BASE_DIR / "storage" / "known_web.json"
